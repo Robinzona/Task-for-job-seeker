@@ -108,7 +108,7 @@ while(1)
         if (!$nGeneratorPingTime || ($nCurrentTime > ($nGeneratorPingTime + $nGeneratorPingDelay) ) )
         {
 
-LogEvent('воркер #' . $nWorkerId . ' в позиции 2, generator:id = ' . $oRedis->get('generator:id'));
+//LogEvent('воркер #' . $nWorkerId . ' в позиции 2, generator:id = ' . $oRedis->get('generator:id'));
 
             // Текущий генератор долго не выходил на связь, попытаемся стать генератором сами
             $oRedis->watch('generator:id');
@@ -119,7 +119,7 @@ LogEvent('воркер #' . $nWorkerId . ' в позиции 2, generator:id = '
                 $oRedis->exec();
                 $oRedis->unwatch();
 
-LogEvent('воркер #' . $nWorkerId . ' в позиции 3, $nGeneratorId = ' . $nGeneratorId);
+//LogEvent('воркер #' . $nWorkerId . ' в позиции 3, $nGeneratorId = ' . $nGeneratorId);
 
                 // Проверим, стали ли мы генератором?
                 if ( ($nGeneratorId = $oRedis->get('generator:id') ) == $nWorkerId)
@@ -140,7 +140,7 @@ LogEvent('воркер #' . $nWorkerId . ' в позиции 3, $nGeneratorId = 
             else
                 $oRedis->unwatch();
 
-LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = ' . $nGeneratorId);
+//LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = ' . $nGeneratorId);
 
         }
         else
@@ -150,7 +150,7 @@ LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = 
 
 //LogEvent('воркер #' . $nWorkerId . ' в позиции 5, $nSubscriptionTime = ' . $nSubscriptionTime);
 
-            /*
+
             if ($oPubSub = $oRedis->pubSubLoop() )
             {
                 //$oRedis->multi();
@@ -204,7 +204,7 @@ LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = 
 
                 unset($oPubSub);
             }
-            */
+
 
 //LogEvent('воркер #' . $nWorkerId . ' в позиции 6, прошло ' . (time() - $nSubscriptionTime) . ' сек');
         }
