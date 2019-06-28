@@ -1,0 +1,179 @@
+/*
+	root element for the scrollable.
+	when scrolling occurs this element stays still.
+*/
+.scrollable {
+
+	/* required settings */
+	position: relative;
+	overflow: hidden;
+	width: 551px;
+	height: 116px;
+
+	/* custom decorations */
+	border: 1px solid #ccc;
+	background: url(/i/jquery/tools/h300.png) repeat-x;
+}
+
+/*
+	root element for scrollable items. Must be absolutely positioned
+	and it should have a extremely large width to accomodate scrollable items.
+	it's enough that you set the width and height for the root element and
+	not for this element.
+*/
+.scrollable .items {
+	/* this cannot be too large */
+	width: 20000em;
+	position: absolute;
+	clear: both; }
+
+.items div { float: left; width: 551px; }
+
+/* single scrollable item */
+.scrollable img {
+	float: left; margin: 15px 0px 15px 15px; padding: 2px;
+	background-color: #fff;
+	border: 1px solid #ccc;
+	width: 113px; height: 80px;
+	cursor: pointer;
+	
+	-moz-border-radius:4px;
+	-webkit-border-radius:4px;
+}
+
+/* active item */
+.scrollable .active { border: 2px solid #000;
+	position: relative; cursor: default; }
+
+/* this makes it possible to add next button beside scrollable */
+.scrollable { float: left; }
+
+/* prev, next, prevPage and nextPage buttons */
+a.browse { background: url(/i/jquery/tools/hori_large.png) no-repeat;
+	display: block; width: 30px; height: 30px;
+	font-size: 1px; float: left; 
+	margin: 40px 10px; cursor: pointer; }
+
+/* right */
+a.right 		{ background-position: 0 -30px; clear: right; margin-right: 0px; }
+a.right:hover 	{ background-position: -30px -30px; }
+a.right:active 	{ background-position: -60px -30px; } 
+
+
+/* left */
+a.left			{ margin-left: 0px; } 
+a.left:hover  	{ background-position: -30px 0; }
+a.left:active  	{ background-position: -60px 0; }
+
+/* up and down */
+a.up, a.down	{ float: none; margin: 10px 50px;
+				  background: url(/i/jquery/tools/vert_large.png) no-repeat; }
+
+/* up */
+a.up:hover  	{ background-position:-30px 0; }
+a.up:active  	{ background-position:-60px 0; }
+
+/* down */
+a.down 			{ background-position: 0 -30px; }
+a.down:hover  	{ background-position:-30px -30px; }
+a.down:active  	{ background-position:-60px -30px; } 
+
+
+/* disabled navigational button */
+a.disabled { visibility: hidden !important; }
+
+/* position and dimensions of the navigator */
+.navi { width: 86px; height: 10px; clear: both; 
+	padding-top: 6px; margin-left: 274px; }
+
+/* items inside navigator */
+.navi a { width: 8px; height: 8px;
+	float: left; margin: 3px;
+	background: url(/i/jquery/tools/navigator.png) 0 0 no-repeat;
+	display: block; font-size: 1px; }
+
+/* mouseover state */
+.navi a:hover { background-position:0 -8px; }
+
+/* active state (current page state) */
+.navi a.active { background-position:0 -16px; }
+
+/* the overlayed element */
+.apple_overlay {
+	/* initially overlay is hidden */
+	display:none;
+
+	/* growing background image */
+	background-image:url(/i/jquery/tools/white.png);
+
+	/* width after the growing animation finishes
+	   height is automatically calculated
+	*/
+	width:640px;
+
+	/* some padding to layout nested elements nicely  */
+	padding:35px;
+
+	/* a little styling */
+	font-size:11px;
+}
+
+/* default close button positioned on upper right corner */
+.apple_overlay .close {
+	background-image:url(/i/jquery/tools/close.png);
+	position:absolute; right:5px; top:5px;
+	cursor:pointer;
+	height:35px; width:35px;
+}
+
+
+div.theme-div { 
+	position: absolute; top: -1000px; 
+	visibility: hidden; z-index: 1000; 
+	background-color: #fff; width: 633px;
+	padding: 0px 18px 6px 18px;
+	-moz-box-shadow: 0 0 10px 1px rgba(0,0,0,.5);
+	-webkit-box-shadow: 0 0 10px 1px rgba(0,0,0,.5);
+	box-shadow: 0 0 10px 1px rgba(0,0,0,.5); }
+
+/* styling for the image wrapper  */
+div.image_wrap {
+	/* dimensions */
+	width: 547px;
+	margin: 15px 0 15px 41px; padding: 10px 0px;
+
+	/* centered */
+	text-align: center;
+
+	/* some "skinning" */
+	background-color:#efefef;
+	border: 2px solid #fff;
+	outline: 1px solid #ddd; 
+	-moz-ouline-radius:4px;
+}
+
+div.image_wrap img.bigtheme { border: 1px solid #ddd;
+	outline: 2px solid #fff; }
+
+div.theme-div div.header { background-color: #d0d0d0;
+	padding: 2px 6px 2px 6px; margin: 2px -16px 0px -16px;
+	height: 16px; clear: both; }
+div.theme-div div.header span { display: block; }
+div.theme-div div.header span.title {
+	float: left; color: #000; font-weight: bold; }
+div.theme-div div.header span.close {
+	float: right; color: #000; cursor: pointer;
+	text-decoration: none; }
+div.theme-div div.header span.close:hover {	
+	color: #ff6600; text-decoration: underline; }
+
+div.th-preview { float: left; padding-right: 20px; }
+	
+img.theme-thumb { cursor: pointer; margin: 10px 5px 10px 3px;
+	display: block; border: 1px solid #ecebeb;
+	box-shadow: 0 0 10px 1px rgba(0,0,0,.5); }
+img.theme-thumb:hover { border: 1px solid #ecebeb; }
+
+span.showtheme { cursor: pointer;
+	text-decoration: underline; }
+span.showtheme:hover { color: #ff6600; }

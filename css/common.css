@@ -1,0 +1,97 @@
+html, body, td, th, p, pre, ul, ol, li { font-family: Arial, sans-serif, Tahoma, Verdana, Geneva, Helvetica; line-height: 22px; font-size: 16px; }
+body { background-color: #fff; text-align: left; padding: 0px;}
+
+h2 { text-align: center; }
+
+.page-wrapper {
+    width: 660px;
+	margin-left: auto; margin-right: auto;
+}
+
+.eventslist-wrapper {
+    float: left;
+    width: 520px;
+    padding-right: 10px;
+}
+
+.workerslist-wrapper {
+    float: right;
+    width: 130px;
+}
+
+.button-wrapper {
+    clear: both;
+	margin-top: 10px;
+	text-align: left;
+}
+
+.button-wrapper button {
+	width: 166px;
+	margin-right: 10px;
+}
+.button-wrapper button:last-child {
+	margin-right: 0px;
+}
+
+#messagescount {
+    display: inline-block;
+    float: right;
+    width: 128px;
+    height: 30px;
+    border: 1px solid #C3C3C3;
+    border-radius: 5px;
+	text-align: center;
+	line-height: 30px;
+}
+
+#eventslist, #workerslist {
+    padding: 5px;
+	margin-bottom: 10px;
+	border: 1px solid #C3C3C3;
+	border-radius: 5px;
+	height: 400px;
+	overflow-y: auto;
+}
+
+#workerslist > div.generator {
+	background-color: #f0f0ff;
+}
+
+
+#eventslist > div, #workerslist > div {
+	padding: 2px;
+}
+
+#eventslist > div:hover, #workerslist > div:hover {
+    background-color: #f4f4f4;
+}
+
+#workerslist > div.generator:hover {
+    background-color: #eaeaff;
+}
+
+
+#workerslist span.worker-state {
+	display: inline-block;
+	width: 20px;
+	text-align: left;
+}
+
+#workerslist span.del-worker {
+    display: inline-block;
+    float: right;
+	cursor: pointer;
+	color: #ff9999;
+	font-weight: bold;
+    padding: 0px 4px 0px 4px;
+}
+
+#workerslist span.del-worker:hover {
+	color: red;
+}
+
+div.notes {
+	font-size: 14px;
+    font-style: italic;
+    margin-top: 10px;
+}
