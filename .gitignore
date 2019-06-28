@@ -1,6 +1,7 @@
 *.tgz
 *.phar
 *.buildpath
+*.project
 .settings/*.*
 .php-version
 .php_cs.cache
