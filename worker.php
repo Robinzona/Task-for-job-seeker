@@ -1,7 +1,4 @@
 <?php
-echo 'pos1';
-exit;
-
 // Подключение файла с настройками
 require 'settings.php';
 
@@ -11,9 +8,6 @@ Predis\Autoloader::register();
 // Создание объекта Redis и коннект к серверу
 try { $oRedis = new Predis\Client(['scheme' => $sRedisScheme, 'host' => $sRedisHost, 'port' => $nRedisPort], ['read_write_timeout' => 0]); }
 catch (Exception $e) { die($e->getMessage() ); }
-
-print_r($oRedis);
-exit;
 
 // Настройки для фоновой работы скрипта
 ignore_user_abort(true);
@@ -94,7 +88,7 @@ while(1)
         $nCurrentTime = time();
 
         // Отрапортуем Redis-у, что обработчик ещё жив
-        if ($nHandlerPingTime != $nCurrentTime) )
+        if ($nHandlerPingTime != $nCurrentTime)
             $oRedis->hset('worker:' . $nWorkerId, 'pingtime', $nHandlerPingTime = $nCurrentTime);
 
         if (!$oRedis->exists('generator:pingtime') )
@@ -102,14 +96,8 @@ while(1)
         else
             $nGeneratorPingTime = $oRedis->get('generator:pingtime');
 
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 1, $nGeneratorPingTime = ' . $nGeneratorPingTime . ', time = ' . time());
-
-
         if (!$nGeneratorPingTime || ($nCurrentTime > ($nGeneratorPingTime + $nGeneratorPingDelay) ) )
         {
-
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 2, generator:id = ' . $oRedis->get('generator:id'));
-
             // Текущий генератор долго не выходил на связь, попытаемся стать генератором сами
             $oRedis->watch('generator:id');
             if (!($nGeneratorId = intval($oRedis->get('generator:id') ) ) )
@@ -118,8 +106,6 @@ while(1)
                 $oRedis->set('generator:id', $nWorkerId);
                 $oRedis->exec();
                 $oRedis->unwatch();
-
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 3, $nGeneratorId = ' . $nGeneratorId);
 
                 // Проверим, стали ли мы генератором?
                 if ( ($nGeneratorId = $oRedis->get('generator:id') ) == $nWorkerId)
@@ -139,17 +125,11 @@ while(1)
             }
             else
                 $oRedis->unwatch();
-
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = ' . $nGeneratorId);
-
         }
         else
         {
             // Войдём в режим подписки и будем ждать сообщения от генератора
             $nSubscriptionTime = time();
-
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 5, $nSubscriptionTime = ' . $nSubscriptionTime);
-
 
             if ($oPubSub = $oRedis->pubSubLoop() )
             {
@@ -252,8 +232,5 @@ while(1)
         KillWorker($nWorkerId, true);
         exit;
     }
-
-//    // Освобождаем процессор от дурной работы на рандомное время, не более 0.1-0.15 сек
-//    usleep(100000 + rand(0, 50000) );
 }
 ?>

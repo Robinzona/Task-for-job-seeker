@@ -39,7 +39,7 @@
         </div>
 
         <div class="notes">
-            Частота отправки сообщений генератором: каждые <?php echo $nGeneratorDelay; ?> секунды
+            Частота отправки сообщений генератором: каждые <?php echo $nGeneratorDelay; ?> секунд(ы)
         </div>
 
     </div>

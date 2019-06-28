@@ -6,9 +6,9 @@
 .settings/
 .php-version
 .php_cs.cache
-*.log
 phpunit.xml
 package.xml
 composer.lock
 experiments/
 vendor/
+*.log

@@ -1,5 +1,4 @@
 <?php
-
 define(DEBUG_MODE, false);
 
 if (DEBUG_MODE)
@@ -27,7 +26,7 @@ $sChannelName = 'messagevalues:';
 $nGeneratorMinValue     = 0;  // Минимальное генерируемое значение
 $nGeneratorMaxValue     = 10; // Максимальное генерируемое значение
 $nGeneratorMaxGoodValue = 8;  // Максимальное не ошибочное значение
-$nGeneratorDelay        = 10; // Частота генерации значений, секунды
+$nGeneratorDelay        = 5;  // Частота генерации значений, секунды
 $nGeneratorPingDelay    = 2;  // Частота, с которой генератор рапортует, что ещё жив, секунды
 
 // Убивает воркера
