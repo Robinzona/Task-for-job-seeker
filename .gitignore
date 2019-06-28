@@ -1,8 +1,9 @@
 *.tgz
 *.phar
-*.buildpath
-*.project
-.settings/*.*
+.buildpath
+.project
+.gitignore
+.settings/
 .php-version
 .php_cs.cache
 *.log
