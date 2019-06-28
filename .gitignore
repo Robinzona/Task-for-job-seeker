@@ -2,7 +2,6 @@
 *.phar
 .buildpath
 .project
-.gitignore
 .settings/
 .php-version
 .php_cs.cache
