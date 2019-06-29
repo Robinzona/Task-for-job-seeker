@@ -1,19 +1,9 @@
 <?php
-echo 'pos1';
-exit;
-
 // Подключение файла с настройками
 require 'settings.php';
 
-require 'predis/autoload.php';
-Predis\Autoloader::register();
-
-// Создание объекта Redis и коннект к серверу
-try { $oRedis = new Predis\Client(['scheme' => $sRedisScheme, 'host' => $sRedisHost, 'port' => $nRedisPort], ['read_write_timeout' => 0]); }
-catch (Exception $e) { die($e->getMessage() ); }
-
-print_r($oRedis);
-exit;
+// Соединение с сервером Redis
+require 'predis-connect.php';
 
 // Настройки для фоновой работы скрипта
 ignore_user_abort(true);
@@ -23,17 +13,19 @@ set_time_limit(0);
 // В начальный момент worker:maxid отсутствует, вернётся 1
 $nWorkerId = $oRedis->incr('worker:maxid');
 
-// Изначально состояние воркера - обработчик
-$nWorkerState = WORKER_TYPE_HANDLER;
-
-// Занесём id воркера в множество
+// Занесём id в множество воркеров, оно используется только
+// для возможности убить поток воркера - эмулировать отвал связи
 $oRedis->sadd('worker:ids', $nWorkerId);
 
-// Сохраним текущее состояние воркера
-$oRedis->hset('worker:' . $nWorkerId, 'state', $nWorkerState);
+// Изначально состояние воркера - обработчик
+// Сохраним текущее состояние воркера в хэше worker:Nid
+$oRedis->hset('worker:' . $nWorkerId, 'state', $nWorkerState = WORKER_TYPE_HANDLER);
+
+// Занесём id в множество обработчиков
+$oRedis->sadd('handler:ids', $nWorkerId);
 
 // Залогируем создание нового воркера
-LogEvent('создан воркер-обработчик #' . $nWorkerId);
+LogWorkerEvent('создан воркер-обработчик #' . $nWorkerId);
 
 // Время отправки следующего сообщения в состоянии генератора
 $nNextMessageTime = 0;
@@ -44,36 +36,6 @@ $nGeneratorPingTime = 0;
 // Время рапорта обработчика, что он ещё жив
 $nHandlerPingTime = 0;
 
-// Есть ли уже генератор?
-// В начальный момент generatorid отсутствует
-// Если генератора нет - попытаемся стать генератором сами
-$oRedis->watch('generator:id');
-if (!($nGeneratorId = $oRedis->get('generator:id') ) )
-{
-    $oRedis->multi();
-    $oRedis->set('generator:id', $nWorkerId);
-    $oRedis->exec();
-    $oRedis->unwatch();
-
-    // Проверим, стали ли мы генератором?
-    if ( ($nGeneratorId = $oRedis->get('generator:id') ) == $nWorkerId)
-    {
-        // Сохраним текущее состояние воркера
-        $oRedis->hset('worker:' . $nWorkerId, 'state', $nWorkerState = WORKER_TYPE_GENERATOR);
-
-        // Залогируем установку нового генератора
-        LogEvent('воркер #' . $nWorkerId . ' становится генератором');
-
-        // Установим время, когда рапортовали о доступности генератора
-        $oRedis->set('generator:pingtime', $nGeneratorPingTime = time() );
-
-        // Установим время следующей отправки сообщения воркеру-обработчику
-        $nNextMessageTime = $nGeneratorPingTime + $nGeneratorDelay;
-    }
-}
-else
-    $oRedis->unwatch();
-
 // Время старта воркера
 $nStartTime = time();
 
@@ -83,18 +45,17 @@ while(1)
     // Проверка, указали ли мы убить этого воркера
     if (!$oRedis->exists('worker:ids') || !$oRedis->sismember('worker:ids', $nWorkerId) )
     {
-        LogEvent('поток воркера #' . $nWorkerId . ' завершён');
+        LogWorkerEvent('поток воркера #' . $nWorkerId . ' завершён');
         exit;
     }
 
-    // Этот воркер - обработчик. Не пропал ли уже генератор?
-    // Если генератора нет - попытаемся стать генератором сами
+    $nCurrentTime = time();
+
+    // Этот воркер - обработчик
     if ($nWorkerState == WORKER_TYPE_HANDLER)
     {
-        $nCurrentTime = time();
-
         // Отрапортуем Redis-у, что обработчик ещё жив
-        if ($nHandlerPingTime != $nCurrentTime) )
+        if ($nCurrentTime >= $nHandlerPingTime + $nHandlerPingDelay)
             $oRedis->hset('worker:' . $nWorkerId, 'pingtime', $nHandlerPingTime = $nCurrentTime);
 
         if (!$oRedis->exists('generator:pingtime') )
@@ -102,92 +63,67 @@ while(1)
         else
             $nGeneratorPingTime = $oRedis->get('generator:pingtime');
 
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 1, $nGeneratorPingTime = ' . $nGeneratorPingTime . ', time = ' . time());
-
-
-        if (!$nGeneratorPingTime || ($nCurrentTime > ($nGeneratorPingTime + $nGeneratorPingDelay) ) )
+        // Есть ли уже генератор? Не пропал ли он?
+        // В начальный момент generator:id и generator:pingtime отсутствуют
+        // Если генератора долго нет - попытаемся стать генератором сами
+        if (!$nGeneratorPingTime || ($nCurrentTime > ($nGeneratorPingTime + $nGeneratorPingDelay + 1) ) )
         {
-
-LogEvent('воркер #' . $nWorkerId . ' в позиции 2, generator:id = ' . $oRedis->get('generator:id'));
-
             // Текущий генератор долго не выходил на связь, попытаемся стать генератором сами
-            $oRedis->watch('generator:id');
-            if (!($nGeneratorId = intval($oRedis->get('generator:id') ) ) )
+            $oRedis->watch('generator:id', 'generator:pingtime');
+            if ($nGeneratorPingTime != $oRedis->get('generator:pingtime') )
+                $oRedis->unwatch(); // Генератором уже кто-то успел стать, можно уже не пробовать
+            else
             {
+                $nGeneratorPingTime = time();
                 $oRedis->multi();
+                // Установим свой id как генератора
                 $oRedis->set('generator:id', $nWorkerId);
+                // Установим время, когда рапортовали о доступности генератора
+                $oRedis->set('generator:pingtime', $nGeneratorPingTime);
                 $oRedis->exec();
                 $oRedis->unwatch();
-
-LogEvent('воркер #' . $nWorkerId . ' в позиции 3, $nGeneratorId = ' . $nGeneratorId);
 
                 // Проверим, стали ли мы генератором?
                 if ( ($nGeneratorId = $oRedis->get('generator:id') ) == $nWorkerId)
                 {
-                    // Сохраним текущее состояние воркера
-                    $oRedis->hset('worker:' . $nWorkerId, 'state', $nWorkerState = WORKER_TYPE_GENERATOR);
-
-                    // Залогируем установку нового генератора
-                    LogEvent('воркер #' . $nWorkerId . ' становится генератором');
-
-                    // Установим время, когда рапортовали о доступности генератора
-                    $oRedis->set('generator:pingtime', $nGeneratorPingTime = time() );
-
                     // Установим время следующей отправки сообщения воркеру-обработчику
                     $nNextMessageTime = $nGeneratorPingTime + $nGeneratorDelay;
+
+                    // Сохраним изменение состояния воркера
+                    $oRedis->hset('worker:' . $nWorkerId, 'state', $nWorkerState = WORKER_TYPE_GENERATOR);
+
+                    // Уберём себя из множества обработчиков
+                    $oRedis->srem('handler:ids', $nWorkerId);
+
+                    // Залогируем установку нового генератора
+                    LogWorkerEvent('воркер #' . $nWorkerId . ' берёт на себя роль генератора');
                 }
             }
-            else
-                $oRedis->unwatch();
-
-LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = ' . $nGeneratorId);
-
         }
-        else
+
+        // Проверяем, появилось ли необработанное сообщение
+        $oRedis->watch('message');
+        if ($oRedis->exists('message') && $oRedis->hget('message', 'ready') )
         {
-            // Войдём в режим подписки и будем ждать сообщения от генератора
-            $nSubscriptionTime = time();
+            $oRedis->multi();
+            // Установим себя, как обработчика
+            $oRedis->hset('message', 'handlerid', $nWorkerId);
+            // Уберём признак готовности к обработке
+            $oRedis->hset('message', 'ready', false);
+            $oRedis->exec();
+            $oRedis->unwatch();
 
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 5, $nSubscriptionTime = ' . $nSubscriptionTime);
-
-            /*
-            if ($oPubSub = $oRedis->pubSubLoop() )
+            // Проверим, удалось ли нам получить право на обработку сообщения
+            if ($nWorkerId == $oRedis->hget('message', 'handlerid') && !$oRedis->hget('message', 'ready') )
             {
-                //$oRedis->multi();
-                // Добавим id воркера в множество подписавшихся
-                $oRedis->sadd('subscriber:ids', $nWorkerId);
+                // Получим значение сообщения из хэша
+                $nMessageValue = intval($oRedis->hget('message', 'value') );
 
-                // Подписываемся на рассылку
-                $oPubSub->subscribe($sChannelName . $nWorkerId);
-                //$oRedis->exec();
+                // Кто его посылал?
+                $nSenderId = $oRedis->hget('message', 'generatorid');
 
-                $nMessageValue = -1;
-                $sReceiveMessage = '';
-                foreach ($oPubSub as $oMessage)
-                {   // Видимо, это программный вечный цикл
-
-                    // $oMessage->kind, $oMessage->channel, $oMessage->payload
-                    if ( ($oMessage->kind == 'message') && ($nMessageValue = intval($oMessage->payload) ) >= 0)
-                    {
-                        $sReceiveMessage = 'воркер #' . $nWorkerId . ' получил сообщение "' . $oMessage->payload . '"';
-                        break;
-                    }
-
-                    if (time() > $nSubscriptionTime)
-                        break;
-
-                    // Освобождаем процессор от дурной работы на 0.05 сек
-                    usleep(50000);
-                }
-                $oPubSub->unsubscribe($sChannelName . $nWorkerId);
-
-                // А вот после отписки уже можно посылать другие команды в Redis!
-
-                // Удалим id воркера из множества подписавшихся
-                $oRedis->srem('subscriber:ids', $nWorkerId);
-
-                if ($sReceiveMessage)
-                    LogEvent($sReceiveMessage);
+                LogWorkerEvent('обработчик #' . $nWorkerId . ' получил сообщение "' .
+                        $nMessageValue . '" от генератора #' . $nSenderId);
 
                 // Сообщение получено, анализируем и обрабатываем
                 if ($nMessageValue >= $nGeneratorMinValue && $nMessageValue <= $nGeneratorMaxValue)
@@ -195,55 +131,83 @@ LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = 
                     // Пришло не ошибочное значение
                     if ($nMessageValue <= $nGeneratorMaxGoodValue)
                     {
-                        $oRedis->incr('messagescount');
-                        LogEvent('сообщение обработано, счётчик увеличен');
+                        $oRedis->incr('messages:successcount');
+                        LogSystemEvent('сообщение "' . $nMessageValue . '" от #' .
+                                $nSenderId . ' обработано, счётчик увеличен');
                     }
                     else
-                        LogEvent('сообщение не обработано, выполнение считается ошибочным');
+                    {
+                        $oRedis->incr('messages:errorcount');
+                        LogSystemEvent('сообщение "' . $nMessageValue . '" от #' .
+                                $nSenderId . ' не обработано, ошибка!');
+                    }
                 }
+                else
 
-                unset($oPubSub);
+                // Очистим обработанное сообщение
+                $oRedis->del('message');
             }
-            */
-
-//LogEvent('воркер #' . $nWorkerId . ' в позиции 6, прошло ' . (time() - $nSubscriptionTime) . ' сек');
         }
+        else
+            $oRedis->unwatch();
+
+        // Освобождаем процессор от дурной работы на рандомное время в диапазоне 0.3-0.5 сек
+        usleep(300000 + rand(0, 200000) );
     }
     // Этот воркер сейчас в режиме генератора
     else
     {
         // Не пришла ли пора рапортовать, что генератор ещё жив и на связи?
-        if ( ($nCurrentTime = time() ) >= $nGeneratorPingTime + $nGeneratorPingDelay)
+        if ($nCurrentTime >= $nGeneratorPingTime + $nGeneratorPingDelay)
+        {
             $oRedis->set('generator:pingtime', $nGeneratorPingTime = $nCurrentTime);
+
+            // Заодно здесь же проверим тех обработчиков, которые могли умереть и долго не рапортовали о жизнеспособности
+            RescanHandlers();
+        }
 
         // Не пришла ли пора послать новое сообщение на обработку?
         if ($nCurrentTime >= $nNextMessageTime)
         {
-            // Сгенерируем рандомное значение в нужном диапазоне
-            $nMessageValue = rand($nGeneratorMinValue, $nGeneratorMaxValue);
+            // Тут бы получить просто количество значений в множестве, но пока не понял, какой командой
+            $aHandlerIds = $oRedis->smembers('handler:ids');
 
             // Есть кому его отправить?
-            if ($nReceiverId = $oRedis->srandmember('subscriber:ids') )
+            if (is_array($aHandlerIds) && count($aHandlerIds) > 0)
             {
-                // Должно вернуться количество получивших сообщение
-                // По сути - подтверждение о доставке
-                $nReceiveCount = $oRedis->publish($sChannelName . $nReceiverId, $nMessageValue);
-
-                // Залогируем установку нового генератора
-                LogEvent('воркер-генератор #' . $nWorkerId . ' отправил сообщение "' .
-                        $nMessageValue . '" обработчику #' . $nReceiverId .
-                        ($nReceiveCount > 0 ? ' - получено успешно' : ' - не доставлено') );
+                // Сгенерируем рандомное значение в нужном диапазоне
+                $nMessageValue = rand($nGeneratorMinValue, $nGeneratorMaxValue);
 
                 // Установим время следующей отправки сообщения воркеру-обработчику
-                if ($nReceiveCount > 0)
-                    $nNextMessageTime = time() + $nGeneratorDelay;
-            }
+                $nMessageTime = time();
+                $nNextMessageTime = $nMessageTime + $nGeneratorDelay;
 
-            // Посмотрим, сколько остаётся времени до следующего полезного действия
-            $nFreeTime = time() - min($nNextMessageTime, $nGeneratorPingTime + $nGeneratorPingDelay) - 1;
-            if ($nFreeTime > 0)
-                sleep($nFreeTime);
+                // Добавим данные о сообщении, транзакционно
+                $oRedis->multi();
+                // Установим значение сообщения в хэше
+                $oRedis->hset('message', 'value', $nMessageValue);
+                // Установим id генератора
+                $oRedis->hset('message', 'generatorid', $nWorkerId);
+                // Очистим id обработчика
+                $oRedis->hdel('message', 'handlerid');
+                // Установим признак готовности к обработке
+                $oRedis->hset('message', 'ready', true);
+                $oRedis->exec();
+
+                // Залогируем подготовку к обработке нового сообщения
+                LogWorkerEvent('генератор #' . $nWorkerId . ' отправил сообщение "' .
+                        $nMessageValue . '" обработчикам');
+            }
+            else
+                usleep(100000);
         }
+
+        // Посмотрим, сколько остаётся времени до следующего полезного действия
+        $nFreeTime = min($nNextMessageTime, $nGeneratorPingTime + $nGeneratorPingDelay) - time() - 1;
+        if ($nFreeTime == 1)
+            usleep(300000);
+        elseif ($nFreeTime > 1)
+            sleep(1);
     }
 
     // Автоматическое убивание воркера-обработчика в debug-режиме
@@ -252,8 +216,5 @@ LogEvent('воркер #' . $nWorkerId . ' в позиции 4, $nGeneratorId = 
         KillWorker($nWorkerId, true);
         exit;
     }
-
-//    // Освобождаем процессор от дурной работы на рандомное время, не более 0.1-0.15 сек
-//    usleep(100000 + rand(0, 50000) );
 }
 ?>

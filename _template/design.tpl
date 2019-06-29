@@ -18,16 +18,26 @@
 
     <div class="page-wrapper">
 
-        <div class="eventslist-wrapper">
-            Лог событий:
-            <div id="eventslist">
-            </div>
+        <div class="workerslist-wrapper">
+            <label>Воркеры (<span id="workerscount">0</span>):</label>
+            <div id="workerslist"></div>
         </div>
 
-        <div class="workerslist-wrapper">
-            Воркеры (<span id="workerscount">0</span>):
-            <div id="workerslist">
+        <div class="eventslist-wrapper">
+            <div class="eventslistcaption-wrapper">
+                <label>Лог событий воркеров:</label>
+                <div class="autorefresh-wrapper">
+                    <label for="autorefresh">Автообновление данных
+                        <input id="autorefresh" type="checkbox" class="styler" checked>
+                    </label>
+                </div>
             </div>
+            <div id="eventslist"></div>
+        </div>
+
+        <div class="messageslist-wrapper">
+            <label>Лог сообщений:</label>
+            <div id="messageslist"></div>
         </div>
 
         <div class="button-wrapper">
@@ -35,11 +45,14 @@
                 id="delworkersbtn" class="styler">Полная очистка</button><button
                 id="refreshbtn" class="styler">Обновить данные</button>
 
-                <span id="messagescount" title="Счётчик обработанных сообщений"></span>
+                <span id="messagescount" title="Счётчик обработанных и ошибочных сообщений">
+                    <span class="success">0</span> / <span class="error"span>0</span>
+                </span>
         </div>
 
         <div class="notes">
-            Частота отправки сообщений генератором: каждые <?php echo $nGeneratorDelay; ?> секунды
+            Частота отправки сообщений генератором: каждые <?php echo $nGeneratorDelay; ?> секунд<br>
+            Максимальное количество потоков воркеров: не более <?php echo $nMaxWorkersCount; ?>-ти
         </div>
 
     </div>
