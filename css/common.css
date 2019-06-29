@@ -3,35 +3,105 @@ body { background-color: #fff; text-align: left; padding: 0px;}
 
 h2 { text-align: center; }
 
-.page-wrapper {
+div.page-wrapper {
     width: 660px;
 	margin-left: auto; margin-right: auto;
 }
 
-.eventslist-wrapper {
+div.eventslist-wrapper,
+div.messageslist-wrapper {
     float: left;
     width: 520px;
     padding-right: 10px;
 }
 
-.workerslist-wrapper {
+div.workerslist-wrapper {
     float: right;
     width: 130px;
 }
 
-.button-wrapper {
+div.eventslist-wrapper > div.eventslistcaption-wrapper > label,
+div.messageslist-wrapper > label,
+div.workerslist-wrapper > label {
+    display: block;
+	max-width: 200px;
+	height: 22px;
+}
+
+div.eventslist-wrapper div.eventslistcaption-wrapper > label { float: left; }
+div.eventslist-wrapper div.autorefresh-wrapper { text-align: right; }
+div.eventslist-wrapper div.autorefresh-wrapper > label { font-size: 14px; }
+div.eventslist-wrapper div.autorefresh-wrapper input {
+    position: relative;
+	top: 2px;
+    right: -4px;
+    margin-left: 0px;
+}
+
+div.button-wrapper {
     clear: both;
 	margin-top: 10px;
 	text-align: left;
 }
 
-.button-wrapper button {
+div.button-wrapper > button {
 	width: 166px;
 	margin-right: 10px;
 }
-.button-wrapper button:last-child {
-	margin-right: 0px;
+div.button-wrapper > button:last-child { margin-right: 0px; }
+
+#eventslist, #messageslist, #workerslist {
+    padding: 5px;
+    margin-bottom: 10px;
+    border: 1px solid #C3C3C3;
+    border-radius: 5px;
+    overflow-y: auto;
 }
+#eventslist, #messageslist { font-size: 15px; line-height: 20px; }
+#eventslist { height: 247px; }
+#messageslist { height: 122px; }
+#workerslist { height: 413px; }
+
+#eventslist > div,
+#messageslist > div,
+#workerslist > div { padding: 2px; margin-bottom: 1px; }
+#workerslist > div.generator { background-color: #f0f0ff; }
+#eventslist > div:hover,
+#messageslist > div:hover,
+#workerslist > div:hover { background-color: #f4f4f4; }
+#workerslist > div.generator:hover { background-color: #eaeaff; }
+
+#messageslist > div.ok { background-color: #d0ffd0; }
+#messageslist > div.err { background-color: #ffd0d0; }
+#messageslist > div.ok:hover { background-color: #90ff90; }
+#messageslist > div.err:hover { background-color: #ffacac; }
+
+#eventslist > div span.time,
+#messageslist > div span.time {
+    display: inline-block;
+	text-align: left;
+	width: 65px;
+	font-size: 14px;
+    font-style: italic;
+	color: #666;
+}
+
+#workerslist span.worker-state {
+    display: inline-block;
+    width: 20px;
+    text-align: left;
+}
+
+#workerslist span.del-worker {
+    display: inline-block;
+    float: right;
+    cursor: pointer;
+    color: #ff9999;
+    font-weight: bold;
+    padding: 0px 4px 0px 4px;
+}
+
+#workerslist span.del-worker:hover { color: red;}
 
 #messagescount {
     display: inline-block;
@@ -40,55 +110,13 @@ h2 { text-align: center; }
     height: 30px;
     border: 1px solid #C3C3C3;
     border-radius: 5px;
-	text-align: center;
-	line-height: 30px;
+    text-align: center;
+    line-height: 30px;
 }
 
-#eventslist, #workerslist {
-    padding: 5px;
-	margin-bottom: 10px;
-	border: 1px solid #C3C3C3;
-	border-radius: 5px;
-	height: 400px;
-	overflow-y: auto;
-}
-
-#workerslist > div.generator {
-	background-color: #f0f0ff;
-}
-
-
-#eventslist > div, #workerslist > div {
-	padding: 2px;
-}
-
-#eventslist > div:hover, #workerslist > div:hover {
-    background-color: #f4f4f4;
-}
-
-#workerslist > div.generator:hover {
-    background-color: #eaeaff;
-}
-
-
-#workerslist span.worker-state {
-	display: inline-block;
-	width: 20px;
-	text-align: left;
-}
-
-#workerslist span.del-worker {
-    display: inline-block;
-    float: right;
-	cursor: pointer;
-	color: #ff9999;
-	font-weight: bold;
-    padding: 0px 4px 0px 4px;
-}
-
-#workerslist span.del-worker:hover {
-	color: red;
-}
+#messagescount > span { font-weight: bold; }
+#messagescount span.success { color: #008000; }
+#messagescount span.error { color: #d40000; }
 
 div.notes {
 	font-size: 14px;

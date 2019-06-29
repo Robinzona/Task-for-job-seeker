@@ -4,6 +4,9 @@ require 'settings.php';
 $sTask = $_POST ['task'];
 $nWorkerId = $_POST ['wid'];
 
+$nLoadedEventsCount = intval($_POST ['eventscount']);
+$nLoadedMessagesCount = intval($_POST ['messagescount']);
+
 if (!$sTask)
 {
     // Если не указана конкретная задача - просто показать html-шаблон
@@ -12,66 +15,70 @@ if (!$sTask)
     exit;
 }
 
-require 'predis/autoload.php';
-Predis\Autoloader::register();
-
-// Создание объекта Redis и коннект к серверу
-try { $oRedis = new Predis\Client(['scheme' => $sRedisScheme, 'host' => $sRedisHost, 'port' => $nRedisPort], ['read_write_timeout' => 0]); }
-catch (Exception $e) { die($e->getMessage() ); }
+// Соединение с сервером Redis
+require 'predis-connect.php';
 
 header('Content-type: text/javascript; charset=utf-8');
 $aAnswer = array('task' => $sTask);
 
 if ($sTask == 'addworker')
 {
-    // Обратимся к странице worker.php и создадим нового воркера
-    $sUrl = 'http://' . $sDomainName . '/worker.php';
-    $ch = curl_init();
-
-    // Скачивание
-    $aCurlOptions = array (
-        CURLOPT_HEADER => false,
-        CURLINFO_HEADER_OUT => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 0,
-        CURLOPT_TIMEOUT_MS => 300,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_SSL_VERIFYHOST => false,
-        CURLOPT_HTTPGET => false,
-        CURLOPT_POST => true,
-        CURLOPT_NOBODY => false,
-        CURLOPT_URL => $sUrl
-    );
-    curl_setopt_array($ch, $aCurlOptions);
-
-    $sRequestAnswer = curl_exec($ch);
-    $aRequestInfo = curl_getinfo($ch);
-
-    if (DEBUG_MODE)
+    // Подсчитаем, сколько сейчас воркеров, не превышаем ли лимиты
+    if (count($oRedis->smembers('worker:ids') ) >= $nMaxWorkersCount)
+        LogWorkerEvent('отказ создания нового воркера, превышение лимита');
+    else
     {
-        if ($aRequestInfo ['http_code'] != 200)
-            $aAnswer ['problem'] = 'http answer code: ' . $aRequestInfo ['http_code'];
-        $aAnswer ['request-answer'] = $sRequestAnswer;
-        $aAnswer ['request-info'] = $aRequestInfo;
+
+        // Обратимся к странице worker.php и создадим нового воркера
+        $sUrl = 'http://' . $sDomainName . '/worker.php';
+        $ch = curl_init();
+
+        // Скачивание
+        $aCurlOptions = array (
+            CURLOPT_HEADER => false,
+            CURLINFO_HEADER_OUT => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_TIMEOUT_MS => 300,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_HTTPGET => false,
+            CURLOPT_POST => true,
+            CURLOPT_NOBODY => false,
+            CURLOPT_URL => $sUrl
+        );
+        curl_setopt_array($ch, $aCurlOptions);
+
+        $sRequestAnswer = curl_exec($ch);
+        $aRequestInfo = curl_getinfo($ch);
+
+        if (DEBUG_MODE)
+        {
+            if ($aRequestInfo ['http_code'] != 200)
+                $aAnswer ['problem'] = 'http answer code: ' . $aRequestInfo ['http_code'];
+            $aAnswer ['request-answer'] = $sRequestAnswer;
+            $aAnswer ['request-info'] = $aRequestInfo;
+        }
     }
 }
 elseif ($sTask == 'delworkers')
 {
-    // Очистим лог событий из Redis
+    // Очистим логи событий из Redis
     $oRedis->del('log:events');
+    $oRedis->del('log:messages');
 
     // Удалим хэши воркеров
-    // $oRedis->del('worker:' . implode(' worker:', $oRedis->smembers('worker:ids') ) );
-    if ($aWorkersIds = $oRedis->smembers('worker:ids') )
-        foreach ($aWorkersIds as $sOneKey)
-            $oRedis->del('worker:' . $sOneKey);
+    if ($aWorkerIds = $oRedis->smembers('worker:ids') )
+    {
+        array_walk($aWorkerIds, function(&$sValue) { $sValue = 'worker:' . $sValue; } );
+        $oRedis->del($aWorkerIds);
+    }
 
     // Удалим id всех воркеров
     $oRedis->del('worker:ids');
 
-    // Удалим всех подписчиков
-    // Но это множество и так должно автоматически очищаться...
-    $oRedis->del('subscriber:ids');
+    // Удалим id всех обработчиков
+    $oRedis->del('handler:ids');
 
     // Удалим max id для генерирования новых воркеров
     $oRedis->del('worker:maxid');
@@ -83,7 +90,13 @@ elseif ($sTask == 'delworkers')
     $oRedis->del('generator:pingtime');
 
     // Удалим количество обработанных сообщений
-    $oRedis->del('messagescount');
+    $oRedis->del('messages:successcount');
+
+    // Удалим количество ошибочных сообщений
+    $oRedis->del('messages:errorcount');
+
+    // Удалим пересылаемое сообщение
+    $oRedis->del('message');
 
     // Очистка от возможного мусора в Redis
     if ($aGarbageKeys = $oRedis->keys('*') )
@@ -93,27 +106,16 @@ elseif ($sTask == 'delworkers')
 
         if ($aGarbageKeys)
         {
-            LogEvent('найден мусор в Redis, очищаем ключи: ' . implode(', ', $aGarbageKeys) );
-
-            /*
-            // По необъяснимым причинам команда del с несколькими ключами не работает...
-            //$nDeleteCount = $oRedis->del(implode(' ', $aGarbageKeys) );
-            $nDeleteCount = $oRedis->del('worker:1 worker:2');
-            LogEvent('очищено ' . $nDeleteCount . ' ключей');
-            */
-
-            $nDeleteCount = 0;
-            foreach ($aGarbageKeys as $sOneKey)
-                $nDeleteCount += $oRedis->del($sOneKey);
-            LogEvent('очищено ' . $nDeleteCount . ' ключей');
+            LogWorkerEvent('найден мусор в Redis, очищаем ключи: ' . implode(', ', $aGarbageKeys) );
+            $oRedis->del($aGarbageKeys);
         }
     }
 
-    $aAnswer ['garbage'] = $aGarbageKeys;
-
     $aAnswer ['workers'] = array();
     $aAnswer ['events'] = array();
-    $aAnswer ['messagescount'] = 0;
+    $aAnswer ['messages'] = array();
+    $aAnswer ['msgsuccesscount'] = 0;
+    $aAnswer ['msgerrorcount'] = 0;
 }
 elseif ($sTask == 'deloneworker' && $nWorkerId > 0)
 {
@@ -123,6 +125,10 @@ elseif ($sTask == 'deloneworker' && $nWorkerId > 0)
 // Кто сейчас генератор? Добавим в json для отчётности...
 $aAnswer ['generator:id'] = $oRedis->get('generator:id');
 
+// Возврат количеств уже показанных строк логов
+$aAnswer ['eventscount'] = $nLoadedEventsCount;
+$aAnswer ['messagescount'] = $nLoadedMessagesCount;
+
 // Оптимизация, незачем считывать список id воркеров, если мы его только что очистили
 if ($sTask != 'delworkers')
 {
@@ -130,7 +136,10 @@ if ($sTask != 'delworkers')
     $aAnswer ['workers'] = $oRedis->smembers('worker:ids');
 
     // Считываем из Redic лог событий
-    $aAnswer ['events'] = $oRedis->lrange('log:events', 0, -1);
+    $aAnswer ['events'] = $oRedis->lrange('log:events', $nLoadedEventsCount, -1);
+
+    // Считываем из Redic лог сообщений
+    $aAnswer ['messages'] = $oRedis->lrange('log:messages', $nLoadedMessagesCount, -1);
 
     // Считываем состояния воркеров
     if ($aAnswer ['workers'])
@@ -138,7 +147,10 @@ if ($sTask != 'delworkers')
             $aAnswer ['workersstate'] [$nOneId] = $oRedis->hget('worker:' . $nOneId, 'state');
 
     // Считываем количество обработанных сообщений
-    $aAnswer ['messagescount'] = intval($oRedis->get('messagescount') );
+    $aAnswer ['msgsuccesscount'] = intval($oRedis->get('messages:successcount') );
+
+    // Считываем количество ошибочных сообщений
+    $aAnswer ['msgerrorcount'] = intval($oRedis->get('messages:errorcount') );
 }
 
 // А теперь отправляем информацию браузеру
