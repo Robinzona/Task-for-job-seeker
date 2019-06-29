@@ -19,9 +19,6 @@ $sRedisScheme = 'tcp';
 $sRedisHost = '127.0.0.1';
 $nRedisPort = 6379;
 
-// Настройки канала подписки
-$sChannelName = 'messagevalues:';
-
 // Настройки генератора
 $nGeneratorMinValue     =  0;  // Минимальное генерируемое значение сообщения
 $nGeneratorMaxValue     = 10;  // Максимальное генерируемое значение сообщения
