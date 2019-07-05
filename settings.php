@@ -50,7 +50,6 @@ function RescanHandlers()
         if ($nCurrentTime > $nHandlerPingTime + 2 * $nHandlerPingDelay)
             KillWorker($nOneId, false, true);
     }
-
 }
 
 // Убивает воркера
